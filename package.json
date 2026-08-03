@@ -27,15 +27,5 @@
     "typescript": "^5.7.0",
     "vite": "^6.0.0",
     "wrangler": "^4.0.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "workerd"
-    ],
-    "overrides": {
-      "react": "npm:@preact/compat@^10.25.0",
-      "react-dom": "npm:@preact/compat@^10.25.0"
-    }
   }
 }
