@@ -30,18 +30,18 @@ const TemplateSchema = z.object({
   sort_order: z.number(),
 });
 
-const PageSchema = z.object({
-  id: z.string(),
-  design_id: z.string(),
-  title: z.string(),
-  canvas_json: z.string(),
-  sort_order: z.number(),
-  created_at: z.string(),
-});
+// const PageSchema = z.object({
+//   id: z.string(),
+//   design_id: z.string(),
+//   title: z.string(),
+//   canvas_json: z.string(),
+//   sort_order: z.number(),
+//   created_at: z.string(),
+// });
 
-const DesignWithPagesSchema = DesignSchema.extend({
-  pages: z.array(PageSchema),
-});
+// const DesignWithPagesSchema = DesignSchema.extend({
+//   pages: z.array(PageSchema),
+// });
 
 const ErrorSchema = z.object({ error: z.string() });
 
@@ -65,7 +65,7 @@ const getDesign = createRoute({
   path: "/api/designs/{id}",
   request: { params: z.object({ id: z.string() }) },
   responses: {
-    200: { content: { "application/json": { schema: DesignWithPagesSchema } }, description: "OK" },
+    200: { content: { "application/json": { schema: DesignSchema } }, description: "OK" },
     404: { content: { "application/json": { schema: ErrorSchema } }, description: "Not found" },
   },
 });
@@ -74,11 +74,11 @@ app.openapi(getDesign, async (c) => {
   const { id } = c.req.valid("param");
   const row = await get<z.infer<typeof DesignSchema>>("SELECT * FROM designs WHERE id = ?", [id]);
   if (!row) return c.json({ error: "Not found" }, 404);
-  const pages = await query<z.infer<typeof PageSchema>>(
-    "SELECT * FROM pages WHERE design_id = ? ORDER BY sort_order",
-    [id]
-  );
-  return c.json({ ...row, pages }, 200);
+  // const pages = await query<z.infer<typeof PageSchema>>(
+  //   "SELECT * FROM pages WHERE design_id = ? ORDER BY sort_order",
+  //   [id]
+  // );
+  return c.json(row, 200);
 });
 
 // ── Create design ───────────────────────────────────────────────────
@@ -111,11 +111,11 @@ app.openapi(createDesign, async (c) => {
     [name || "Untitled Design", canvasData, width || 1080, height || 1080]
   );
   const row = await get<z.infer<typeof DesignSchema>>("SELECT * FROM designs ORDER BY created_at DESC LIMIT 1");
-  // Auto-create first page
-  await run(
-    "INSERT INTO pages (design_id, title, canvas_json, sort_order) VALUES (?, ?, ?, ?)",
-    [row!.id, "Page 1", canvasData, 0]
-  );
+  // Auto-create first page (disabled for MVP)
+  // await run(
+  //   "INSERT INTO pages (design_id, title, canvas_json, sort_order) VALUES (?, ?, ?, ?)",
+  //   [row!.id, "Page 1", canvasData, 0]
+  // );
   return c.json(row!, 200);
 });
 
@@ -177,141 +177,141 @@ app.openapi(deleteDesign, async (c) => {
   return c.json({ ok: true }, 200);
 });
 
-// ── Add page ───────────────────────────────────────────────────────
+// ── Add page (disabled for MVP — single page) ───────────────────────
 
-const addPage = createRoute({
-  method: "post",
-  path: "/api/designs/{id}/pages",
-  request: {
-    params: z.object({ id: z.string() }),
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            title: z.string().optional(),
-            canvas_json: z.string().optional(),
-            after_sort_order: z.number().optional(),
-          }),
-        },
-      },
-    },
-  },
-  responses: { 200: { content: { "application/json": { schema: PageSchema } }, description: "OK" } },
-});
+// const addPage = createRoute({
+//   method: "post",
+//   path: "/api/designs/{id}/pages",
+//   request: {
+//     params: z.object({ id: z.string() }),
+//     body: {
+//       content: {
+//         "application/json": {
+//           schema: z.object({
+//             title: z.string().optional(),
+//             canvas_json: z.string().optional(),
+//             after_sort_order: z.number().optional(),
+//           }),
+//         },
+//       },
+//     },
+//   },
+//   responses: { 200: { content: { "application/json": { schema: PageSchema } }, description: "OK" } },
+// });
 
-app.openapi(addPage, async (c) => {
-  const { id } = c.req.valid("param");
-  const body = c.req.valid("json");
-  const count = await get<{ c: number }>("SELECT COUNT(*) as c FROM pages WHERE design_id = ?", [id]);
-  const title = body.title || `Page ${(count?.c ?? 0) + 1}`;
+// app.openapi(addPage, async (c) => {
+//   const { id } = c.req.valid("param");
+//   const body = c.req.valid("json");
+//   const count = await get<{ c: number }>("SELECT COUNT(*) as c FROM pages WHERE design_id = ?", [id]);
+//   const title = body.title || `Page ${(count?.c ?? 0) + 1}`;
+//
+//   let insertOrder: number;
+//   if (body.after_sort_order !== undefined) {
+//     await run(
+//       "UPDATE pages SET sort_order = sort_order + 1 WHERE design_id = ? AND sort_order > ?",
+//       [id, body.after_sort_order]
+//     );
+//     insertOrder = body.after_sort_order + 1;
+//   } else {
+//     const maxOrder = await get<{ m: number }>("SELECT COALESCE(MAX(sort_order), -1) as m FROM pages WHERE design_id = ?", [id]);
+//     insertOrder = (maxOrder?.m ?? -1) + 1;
+//   }
+//
+//   await run(
+//     "INSERT INTO pages (design_id, title, canvas_json, sort_order) VALUES (?, ?, ?, ?)",
+//     [id, title, body.canvas_json || "{}", insertOrder]
+//   );
+//   const page = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE design_id = ? ORDER BY created_at DESC LIMIT 1", [id]);
+//   return c.json(page!, 200);
+// });
 
-  let insertOrder: number;
-  if (body.after_sort_order !== undefined) {
-    await run(
-      "UPDATE pages SET sort_order = sort_order + 1 WHERE design_id = ? AND sort_order > ?",
-      [id, body.after_sort_order]
-    );
-    insertOrder = body.after_sort_order + 1;
-  } else {
-    const maxOrder = await get<{ m: number }>("SELECT COALESCE(MAX(sort_order), -1) as m FROM pages WHERE design_id = ?", [id]);
-    insertOrder = (maxOrder?.m ?? -1) + 1;
-  }
+// ── Duplicate page (disabled for MVP — single page) ─────────────────
 
-  await run(
-    "INSERT INTO pages (design_id, title, canvas_json, sort_order) VALUES (?, ?, ?, ?)",
-    [id, title, body.canvas_json || "{}", insertOrder]
-  );
-  const page = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE design_id = ? ORDER BY created_at DESC LIMIT 1", [id]);
-  return c.json(page!, 200);
-});
+// const duplicatePage = createRoute({
+//   method: "post",
+//   path: "/api/pages/{pageId}/duplicate",
+//   request: { params: z.object({ pageId: z.string() }) },
+//   responses: {
+//     200: { content: { "application/json": { schema: PageSchema } }, description: "OK" },
+//     404: { content: { "application/json": { schema: ErrorSchema } }, description: "Not found" },
+//   },
+// });
 
-// ── Duplicate page ─────────────────────────────────────────────────
+// app.openapi(duplicatePage, async (c) => {
+//   const { pageId } = c.req.valid("param");
+//   const original = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE id = ?", [pageId]);
+//   if (!original) return c.json({ error: "Not found" }, 404);
+//   // Shift sort_order of pages after the original
+//   await run(
+//     "UPDATE pages SET sort_order = sort_order + 1 WHERE design_id = ? AND sort_order > ?",
+//     [original.design_id, original.sort_order]
+//   );
+//   await run(
+//     "INSERT INTO pages (design_id, title, canvas_json, sort_order) VALUES (?, ?, ?, ?)",
+//     [original.design_id, `${original.title} (copy)`, original.canvas_json, original.sort_order + 1]
+//   );
+//   const page = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE design_id = ? AND sort_order = ?", [original.design_id, original.sort_order + 1]);
+//   return c.json(page!, 200);
+// });
 
-const duplicatePage = createRoute({
-  method: "post",
-  path: "/api/pages/{pageId}/duplicate",
-  request: { params: z.object({ pageId: z.string() }) },
-  responses: {
-    200: { content: { "application/json": { schema: PageSchema } }, description: "OK" },
-    404: { content: { "application/json": { schema: ErrorSchema } }, description: "Not found" },
-  },
-});
+// ── Update page (disabled for MVP — single page) ────────────────────
 
-app.openapi(duplicatePage, async (c) => {
-  const { pageId } = c.req.valid("param");
-  const original = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE id = ?", [pageId]);
-  if (!original) return c.json({ error: "Not found" }, 404);
-  // Shift sort_order of pages after the original
-  await run(
-    "UPDATE pages SET sort_order = sort_order + 1 WHERE design_id = ? AND sort_order > ?",
-    [original.design_id, original.sort_order]
-  );
-  await run(
-    "INSERT INTO pages (design_id, title, canvas_json, sort_order) VALUES (?, ?, ?, ?)",
-    [original.design_id, `${original.title} (copy)`, original.canvas_json, original.sort_order + 1]
-  );
-  const page = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE design_id = ? AND sort_order = ?", [original.design_id, original.sort_order + 1]);
-  return c.json(page!, 200);
-});
+// const updatePage = createRoute({
+//   method: "put",
+//   path: "/api/pages/{pageId}",
+//   request: {
+//     params: z.object({ pageId: z.string() }),
+//     body: {
+//       content: {
+//         "application/json": {
+//           schema: z.object({
+//             title: z.string().optional(),
+//             canvas_json: z.string().optional(),
+//           }),
+//         },
+//       },
+//     },
+//   },
+//   responses: {
+//     200: { content: { "application/json": { schema: PageSchema } }, description: "OK" },
+//     404: { content: { "application/json": { schema: ErrorSchema } }, description: "Not found" },
+//   },
+// });
 
-// ── Update page ────────────────────────────────────────────────────
+// app.openapi(updatePage, async (c) => {
+//   const { pageId } = c.req.valid("param");
+//   const body = c.req.valid("json");
+//   const existing = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE id = ?", [pageId]);
+//   if (!existing) return c.json({ error: "Not found" }, 404);
+//   await run(
+//     "UPDATE pages SET title = ?, canvas_json = ? WHERE id = ?",
+//     [body.title ?? existing.title, body.canvas_json ?? existing.canvas_json, pageId]
+//   );
+//   const page = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE id = ?", [pageId]);
+//   return c.json(page!, 200);
+// });
 
-const updatePage = createRoute({
-  method: "put",
-  path: "/api/pages/{pageId}",
-  request: {
-    params: z.object({ pageId: z.string() }),
-    body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            title: z.string().optional(),
-            canvas_json: z.string().optional(),
-          }),
-        },
-      },
-    },
-  },
-  responses: {
-    200: { content: { "application/json": { schema: PageSchema } }, description: "OK" },
-    404: { content: { "application/json": { schema: ErrorSchema } }, description: "Not found" },
-  },
-});
+// ── Delete page (disabled for MVP — single page) ────────────────────
 
-app.openapi(updatePage, async (c) => {
-  const { pageId } = c.req.valid("param");
-  const body = c.req.valid("json");
-  const existing = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE id = ?", [pageId]);
-  if (!existing) return c.json({ error: "Not found" }, 404);
-  await run(
-    "UPDATE pages SET title = ?, canvas_json = ? WHERE id = ?",
-    [body.title ?? existing.title, body.canvas_json ?? existing.canvas_json, pageId]
-  );
-  const page = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE id = ?", [pageId]);
-  return c.json(page!, 200);
-});
+// const deletePage = createRoute({
+//   method: "delete",
+//   path: "/api/pages/{pageId}",
+//   request: { params: z.object({ pageId: z.string() }) },
+//   responses: {
+//     200: { content: { "application/json": { schema: z.object({ ok: z.boolean() }) } }, description: "OK" },
+//     400: { content: { "application/json": { schema: ErrorSchema } }, description: "Cannot delete last page" },
+//   },
+// });
 
-// ── Delete page ────────────────────────────────────────────────────
-
-const deletePage = createRoute({
-  method: "delete",
-  path: "/api/pages/{pageId}",
-  request: { params: z.object({ pageId: z.string() }) },
-  responses: {
-    200: { content: { "application/json": { schema: z.object({ ok: z.boolean() }) } }, description: "OK" },
-    400: { content: { "application/json": { schema: ErrorSchema } }, description: "Cannot delete last page" },
-  },
-});
-
-app.openapi(deletePage, async (c) => {
-  const { pageId } = c.req.valid("param");
-  const page = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE id = ?", [pageId]);
-  if (!page) return c.json({ ok: true }, 200);
-  const count = await get<{ c: number }>("SELECT COUNT(*) as c FROM pages WHERE design_id = ?", [page.design_id]);
-  if ((count?.c ?? 0) <= 1) return c.json({ error: "Cannot delete the last page" }, 400);
-  await run("DELETE FROM pages WHERE id = ?", [pageId]);
-  return c.json({ ok: true }, 200);
-});
+// app.openapi(deletePage, async (c) => {
+//   const { pageId } = c.req.valid("param");
+//   const page = await get<z.infer<typeof PageSchema>>("SELECT * FROM pages WHERE id = ?", [pageId]);
+//   if (!page) return c.json({ ok: true }, 200);
+//   const count = await get<{ c: number }>("SELECT COUNT(*) as c FROM pages WHERE design_id = ?", [page.design_id]);
+//   if ((count?.c ?? 0) <= 1) return c.json({ error: "Cannot delete the last page" }, 400);
+//   await run("DELETE FROM pages WHERE id = ?", [pageId]);
+//   return c.json({ ok: true }, 200);
+// });
 
 // ── List templates ──────────────────────────────────────────────────
 

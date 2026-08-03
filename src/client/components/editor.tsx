@@ -2,7 +2,7 @@ import { CanvasArea } from "./canvas-area";
 import { Toolbar } from "./toolbar";
 import { LeftSidebar } from "./left-sidebar";
 import { RightSidebar } from "./right-sidebar";
-import { PagesBar } from "./pages-bar";
+// import { PagesBar } from "./pages-bar"; // Multi-page disabled for MVP
 
 export function Editor() {
   return (
@@ -12,7 +12,7 @@ export function Editor() {
         <LeftSidebar />
         <div class="flex-1 flex flex-col min-w-0">
           <CanvasArea />
-          <PagesBar />
+          {/* <PagesBar /> */} {/* Multi-page disabled for MVP */}
         </div>
         <RightSidebar />
       </div>

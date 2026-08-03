@@ -1,6 +1,6 @@
 import { createContext } from "preact";
 import { useContext } from "preact/hooks";
-import type { Design, Template, Page } from "./types";
+import type { Design, Template } from "./types";
 import type * as fabric from "fabric";
 
 export interface CanvasSize {
@@ -10,18 +10,16 @@ export interface CanvasSize {
 }
 
 export const CANVAS_SIZES: CanvasSize[] = [
-  { label: "LinkedIn Square", width: 1080, height: 1080 },
-  { label: "LinkedIn Landscape", width: 1200, height: 627 },
-  { label: "LinkedIn Portrait", width: 1200, height: 1500 },
-  { label: "Instagram Story", width: 1080, height: 1920 },
+  { label: "Square", width: 1080, height: 1080 },
+  { label: "Landscape", width: 1200, height: 627 },
+  { label: "Portrait", width: 1200, height: 1500 },
+  // { label: "Story", width: 1080, height: 1920 },
 ];
 
 export interface EditorContextValue {
-  // Canvas (multi-canvas)
-  registerCanvas: (pageId: string, canvas: fabric.Canvas) => void;
-  unregisterCanvas: (pageId: string) => void;
-  setActiveCanvas: (pageId: string) => void;
-  activeCanvasId: string | null;
+  // Canvas (single canvas)
+  registerCanvas: (canvas: fabric.Canvas) => void;
+  unregisterCanvas: () => void;
   canvas: fabric.Canvas | null;
   selectedObject: fabric.FabricObject | null;
   canvasWidth: number;
@@ -48,7 +46,7 @@ export interface EditorContextValue {
   zoomOut: () => void;
   exportPNG: () => void;
   getCanvasJSON: () => string;
-  getCanvasJSONForPage: (pageId: string) => string;
+  // getCanvasJSONForPage: (pageId: string) => string; // Multi-page disabled for MVP
   loadTemplate: (template: Template) => void;
 
   // Router
@@ -65,15 +63,15 @@ export interface EditorContextValue {
   renameDesign: (id: string, name: string) => Promise<void>;
   saving: boolean;
 
-  // Pages
-  pages: Page[];
-  activePageId: string | null;
-  activePage: Page | null;
-  addPage: () => Promise<void>;
-  duplicatePage: (pageId: string) => Promise<void>;
-  deletePage: (pageId: string) => Promise<void>;
-  renamePage: (pageId: string, title: string) => Promise<void>;
-  switchToPage: (pageId: string) => void;
+  // Pages (disabled for MVP — single page per design)
+  // pages: Page[];
+  // activePageId: string | null;
+  // activePage: Page | null;
+  // addPage: () => Promise<void>;
+  // duplicatePage: (pageId: string) => Promise<void>;
+  // deletePage: (pageId: string) => Promise<void>;
+  // renamePage: (pageId: string, title: string) => Promise<void>;
+  // switchToPage: (pageId: string) => void;
 
   // Templates
   templates: Template[];

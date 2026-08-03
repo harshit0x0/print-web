@@ -56,7 +56,7 @@ export function Home({
       <div class="bg-white border-b border-zinc-200">
         <div class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
           <div>
-            <h1 class="text-lg font-bold text-zinc-800 m-0">My Designs</h1>
+            <h1 class="text-lg font-bold text-zinc-800 m-0">Designer Studio</h1>
             <p class="text-xs text-zinc-400 mt-0.5 m-0">
               {designs.length} design{designs.length !== 1 ? "s" : ""}
             </p>
@@ -71,7 +71,7 @@ export function Home({
         </div>
       </div>
 
-      <div class="max-w-6xl mx-auto px-6 py-6">
+      <div class="max-w-6xl mx-auto px-6 py-6 hidden">
         {/* Templates section */}
         {templates.length > 0 && (
           <div class="mb-8">
@@ -90,11 +90,13 @@ export function Home({
         {/* Designs grid */}
         {designs.length === 0 ? (
           <div class="text-center py-20">
-            <div class="w-16 h-16 rounded-2xl bg-zinc-200 flex items-center justify-center mx-auto mb-4">
-              <Plus size={24} class="text-zinc-400" />
-            </div>
+            {/*<div class="w-16 h-16 rounded-2xl bg-zinc-200 flex items-center justify-center mx-auto mb-4">
+               <Plus size={24} class="text-zinc-400" /> 
+            </div> */}
+            {/* 
             <p class="text-sm text-zinc-500 mb-1">No designs yet</p>
             <p class="text-xs text-zinc-400 mb-4">Create your first design to get started</p>
+            */}
             <button
               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold border-none cursor-pointer bg-[#6366f1] text-white hover:bg-[#5558e6] transition-all"
               onClick={handleCreate}

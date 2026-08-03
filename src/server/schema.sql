@@ -20,17 +20,17 @@ CREATE TABLE IF NOT EXISTS templates (
   sort_order INTEGER DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS pages (
-  id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
-  design_id TEXT NOT NULL,
-  title TEXT DEFAULT 'Page 1',
-  canvas_json TEXT DEFAULT '{}',
-  sort_order INTEGER DEFAULT 0,
-  created_at TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (design_id) REFERENCES designs(id) ON DELETE CASCADE
-);
+-- CREATE TABLE IF NOT EXISTS pages (
+--   id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))),
+--   design_id TEXT NOT NULL,
+--   title TEXT DEFAULT 'Page 1',
+--   canvas_json TEXT DEFAULT '{}',
+--   sort_order INTEGER DEFAULT 0,
+--   created_at TEXT DEFAULT (datetime('now')),
+--   FOREIGN KEY (design_id) REFERENCES designs(id) ON DELETE CASCADE
+-- );
 
-CREATE INDEX IF NOT EXISTS idx_pages_design ON pages(design_id);
+-- CREATE INDEX IF NOT EXISTS idx_pages_design ON pages(design_id);
 
 CREATE INDEX IF NOT EXISTS idx_templates_category ON templates(category);
 

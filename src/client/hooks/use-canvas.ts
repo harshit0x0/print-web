@@ -23,10 +23,9 @@ interface CanvasHistory {
 }
 
 export function useCanvasState() {
-  const canvasMapRef = useRef<Map<string, fabric.Canvas>>(new Map());
-  const historyMapRef = useRef<Map<string, CanvasHistory>>(new Map());
-  const [activeCanvasId, setActiveCanvasId] = useState<string | null>(null);
-  const activeCanvasIdRef = useRef<string | null>(null);
+  // ── Single canvas state (MVP — no multi-page) ────────────────────
+  const canvasRef = useRef<fabric.Canvas | null>(null);
+  const historyRef = useRef<CanvasHistory>({ entries: [], index: -1 });
   const [selectedObject, setSelectedObject] = useState<fabric.FabricObject | null>(null);
   const [canvasWidth, setCanvasWidth] = useState(1080);
   const [canvasHeight, setCanvasHeight] = useState(1080);
@@ -34,38 +33,26 @@ export function useCanvasState() {
   const [fitScale, setFitScale] = useState(0.58);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  const isRestoringRef = useRef<Set<string>>(new Set());
+  const isRestoringRef = useRef(false);
 
-  // Helper to get the active canvas
+  // ── Helpers ───────────────────────────────────────────────────────
+
   const getActiveCanvas = useCallback((): fabric.Canvas | null => {
-    const id = activeCanvasIdRef.current;
-    if (!id) return null;
-    return canvasMapRef.current.get(id) ?? null;
+    return canvasRef.current;
   }, []);
 
-  // Update undo/redo state for active canvas
-  const updateUndoRedoState = useCallback((pageId: string) => {
-    if (pageId !== activeCanvasIdRef.current) return;
-    const hist = historyMapRef.current.get(pageId);
-    if (!hist) {
-      setCanUndo(false);
-      setCanRedo(false);
-      return;
-    }
+  const updateUndoRedoState = useCallback(() => {
+    const hist = historyRef.current;
     setCanUndo(hist.index > 0);
     setCanRedo(hist.index < hist.entries.length - 1);
   }, []);
 
-  const saveHistory = useCallback((pageId: string) => {
-    if (isRestoringRef.current.has(pageId)) return;
-    const canvas = canvasMapRef.current.get(pageId);
+  const saveHistory = useCallback(() => {
+    if (isRestoringRef.current) return;
+    const canvas = canvasRef.current;
     if (!canvas) return;
     const json = JSON.stringify(canvas.toJSON());
-    let hist = historyMapRef.current.get(pageId);
-    if (!hist) {
-      hist = { entries: [], index: -1 };
-      historyMapRef.current.set(pageId, hist);
-    }
+    const hist = historyRef.current;
     // Truncate forward history
     hist.entries = hist.entries.slice(0, hist.index + 1);
     hist.entries.push(json);
@@ -74,67 +61,44 @@ export function useCanvasState() {
     } else {
       hist.index = hist.entries.length - 1;
     }
-    updateUndoRedoState(pageId);
+    updateUndoRedoState();
   }, [updateUndoRedoState]);
 
-  const registerCanvas = useCallback((pageId: string, canvas: fabric.Canvas) => {
-    canvasMapRef.current.set(pageId, canvas);
+  // ── Register/unregister (single canvas) ──────────────────────────
+
+  const registerCanvas = useCallback((canvas: fabric.Canvas) => {
+    canvasRef.current = canvas;
 
     // Selection events
     canvas.on("selection:created", (e) => {
-      if (activeCanvasIdRef.current === pageId) {
-        setSelectedObject(e.selected?.[0] ?? null);
-      }
+      setSelectedObject(e.selected?.[0] ?? null);
     });
     canvas.on("selection:updated", (e) => {
-      if (activeCanvasIdRef.current === pageId) {
-        setSelectedObject(e.selected?.[0] ?? null);
-      }
+      setSelectedObject(e.selected?.[0] ?? null);
     });
     canvas.on("selection:cleared", () => {
-      if (activeCanvasIdRef.current === pageId) {
-        setSelectedObject(null);
-      }
+      setSelectedObject(null);
     });
 
     // History events
-    canvas.on("object:added", () => saveHistory(pageId));
-    canvas.on("object:modified", () => saveHistory(pageId));
-    canvas.on("object:removed", () => saveHistory(pageId));
+    canvas.on("object:added", () => saveHistory());
+    canvas.on("object:modified", () => saveHistory());
+    canvas.on("object:removed", () => saveHistory());
 
     // Initial history snapshot
     setTimeout(() => {
       const json = JSON.stringify(canvas.toJSON());
-      historyMapRef.current.set(pageId, { entries: [json], index: 0 });
-      updateUndoRedoState(pageId);
+      historyRef.current = { entries: [json], index: 0 };
+      updateUndoRedoState();
     }, 100);
   }, [saveHistory, updateUndoRedoState]);
 
-  const unregisterCanvas = useCallback((pageId: string) => {
-    canvasMapRef.current.delete(pageId);
-    historyMapRef.current.delete(pageId);
+  const unregisterCanvas = useCallback(() => {
+    canvasRef.current = null;
+    historyRef.current = { entries: [], index: -1 };
   }, []);
 
-  const setActiveCanvas = useCallback((pageId: string) => {
-    const prevId = activeCanvasIdRef.current;
-    if (prevId === pageId) return;
-
-    // Clear selection on previous canvas
-    if (prevId) {
-      const prevCanvas = canvasMapRef.current.get(prevId);
-      if (prevCanvas) {
-        prevCanvas.discardActiveObject();
-        prevCanvas.requestRenderAll();
-      }
-    }
-
-    activeCanvasIdRef.current = pageId;
-    setActiveCanvasId(pageId);
-    setSelectedObject(null);
-    updateUndoRedoState(pageId);
-  }, [updateUndoRedoState]);
-
-  // ── Text ────────────────────────────────────────────────────────────
+  // ── Text ──────────────────────────────────────────────────────────
 
   const addText = useCallback(
     (preset: "heading" | "subheading" | "body") => {
@@ -159,7 +123,7 @@ export function useCanvasState() {
     [getActiveCanvas, canvasWidth, canvasHeight]
   );
 
-  // ── Shapes ──────────────────────────────────────────────────────────
+  // ── Shapes ────────────────────────────────────────────────────────
 
   const addShape = useCallback(
     (type: "rect" | "circle" | "line" | "triangle") => {
@@ -215,7 +179,7 @@ export function useCanvasState() {
     [getActiveCanvas, canvasWidth, canvasHeight]
   );
 
-  // ── Images ──────────────────────────────────────────────────────────
+  // ── Images ────────────────────────────────────────────────────────
 
   const addImage = useCallback(
     async (url: string) => {
@@ -244,17 +208,16 @@ export function useCanvasState() {
     [getActiveCanvas, canvasWidth, canvasHeight]
   );
 
-  // ── Background ──────────────────────────────────────────────────────
+  // ── Background ────────────────────────────────────────────────────
 
   const setBackground = useCallback(
     (type: "color" | "gradient" | "image", value: string) => {
       const canvas = getActiveCanvas();
-      const pageId = activeCanvasIdRef.current;
-      if (!canvas || !pageId) return;
+      if (!canvas) return;
       if (type === "color" || type === "gradient") {
         canvas.backgroundColor = value;
         canvas.requestRenderAll();
-        saveHistory(pageId);
+        saveHistory();
       } else if (type === "image") {
         fabric.FabricImage.fromURL(value, { crossOrigin: "anonymous" }).then((img) => {
           const scaleX = canvasWidth / (img.width || 1);
@@ -267,23 +230,22 @@ export function useCanvasState() {
           canvas.add(img);
           canvas.sendObjectToBack(img);
           canvas.requestRenderAll();
-          saveHistory(pageId);
+          saveHistory();
         });
       }
     },
     [getActiveCanvas, canvasWidth, canvasHeight, saveHistory]
   );
 
-  // ── Object manipulation ─────────────────────────────────────────────
+  // ── Object manipulation ───────────────────────────────────────────
 
   const updateSelectedObject = useCallback(
     (props: Record<string, unknown>) => {
       const canvas = getActiveCanvas();
-      const pageId = activeCanvasIdRef.current;
-      if (!canvas || !selectedObject || !pageId) return;
+      if (!canvas || !selectedObject) return;
       selectedObject.set(props as Partial<fabric.FabricObject>);
       canvas.requestRenderAll();
-      saveHistory(pageId);
+      saveHistory();
       setSelectedObject({ ...selectedObject } as fabric.FabricObject);
     },
     [getActiveCanvas, selectedObject, saveHistory]
@@ -299,52 +261,47 @@ export function useCanvasState() {
     canvas.requestRenderAll();
   }, [getActiveCanvas]);
 
-  // ── Undo / Redo ─────────────────────────────────────────────────────
+  // ── Undo / Redo ───────────────────────────────────────────────────
 
   const restoreFromHistory = useCallback(
     (index: number) => {
-      const pageId = activeCanvasIdRef.current;
       const canvas = getActiveCanvas();
-      if (!canvas || !pageId) return;
-      const hist = historyMapRef.current.get(pageId);
-      if (!hist || index < 0 || index >= hist.entries.length) return;
-      isRestoringRef.current.add(pageId);
+      if (!canvas) return;
+      const hist = historyRef.current;
+      if (index < 0 || index >= hist.entries.length) return;
+      isRestoringRef.current = true;
       hist.index = index;
       const json = hist.entries[index];
       canvas.loadFromJSON(JSON.parse(json)).then(() => {
         canvas.requestRenderAll();
-        isRestoringRef.current.delete(pageId);
-        updateUndoRedoState(pageId);
+        isRestoringRef.current = false;
+        updateUndoRedoState();
       });
     },
     [getActiveCanvas, updateUndoRedoState]
   );
 
   const undo = useCallback(() => {
-    const pageId = activeCanvasIdRef.current;
-    if (!pageId) return;
-    const hist = historyMapRef.current.get(pageId);
-    if (!hist) return;
+    const hist = historyRef.current;
+    if (hist.index <= 0) return;
     restoreFromHistory(hist.index - 1);
   }, [restoreFromHistory]);
 
   const redo = useCallback(() => {
-    const pageId = activeCanvasIdRef.current;
-    if (!pageId) return;
-    const hist = historyMapRef.current.get(pageId);
-    if (!hist) return;
+    const hist = historyRef.current;
+    if (hist.index >= hist.entries.length - 1) return;
     restoreFromHistory(hist.index + 1);
   }, [restoreFromHistory]);
 
-  // ── Canvas size ─────────────────────────────────────────────────────
+  // ── Canvas size ───────────────────────────────────────────────────
 
   const setCanvasSize = useCallback(
     (width: number, height: number) => {
       setCanvasWidth(width);
       setCanvasHeight(height);
-      // Resize all canvases
-      const dpr = window.devicePixelRatio || 1;
-      for (const canvas of canvasMapRef.current.values()) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const dpr = window.devicePixelRatio || 1;
         canvas.setDimensions({ width: width * dpr, height: height * dpr }, { cssOnly: false });
         canvas.setDimensions({ width, height }, { cssOnly: true });
         canvas.setViewportTransform([dpr, 0, 0, dpr, 0, 0]);
@@ -354,7 +311,7 @@ export function useCanvasState() {
     []
   );
 
-  // ── Zoom ────────────────────────────────────────────────────────────
+  // ── Zoom ──────────────────────────────────────────────────────────
 
   const zoomToFit = useCallback(() => {
     setZoom(fitScale);
@@ -368,7 +325,7 @@ export function useCanvasState() {
     setZoom((z) => Math.max(z / 1.2, 0.05));
   }, []);
 
-  // ── Export ──────────────────────────────────────────────────────────
+  // ── Export ────────────────────────────────────────────────────────
 
   const exportPNG = useCallback(() => {
     const canvas = getActiveCanvas();
@@ -394,7 +351,7 @@ export function useCanvasState() {
     }
   }, [getActiveCanvas]);
 
-  // ── Serialization ───────────────────────────────────────────────────
+  // ── Serialization ─────────────────────────────────────────────────
 
   const getCanvasJSON = useCallback(() => {
     const canvas = getActiveCanvas();
@@ -402,46 +359,36 @@ export function useCanvasState() {
     return JSON.stringify(canvas.toJSON());
   }, [getActiveCanvas]);
 
-  const getCanvasJSONForPage = useCallback((pageId: string) => {
-    const canvas = canvasMapRef.current.get(pageId);
-    if (!canvas) return "{}";
-    return JSON.stringify(canvas.toJSON());
-  }, []);
-
   const loadTemplate = useCallback(
     (template: Template) => {
       setCanvasWidth(template.width);
       setCanvasHeight(template.height);
-      // Template loading — resize all canvases to new dimensions
-      const dpr = window.devicePixelRatio || 1;
-      for (const canvas of canvasMapRef.current.values()) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const dpr = window.devicePixelRatio || 1;
         canvas.setDimensions(
           { width: template.width * dpr, height: template.height * dpr },
           { cssOnly: false }
         );
         canvas.setDimensions({ width: template.width, height: template.height }, { cssOnly: true });
         canvas.setViewportTransform([dpr, 0, 0, dpr, 0, 0]);
-      }
-      // Load template JSON onto active canvas
-      const canvas = getActiveCanvas();
-      const pageId = activeCanvasIdRef.current;
-      if (canvas && pageId) {
-        isRestoringRef.current.add(pageId);
+
+        isRestoringRef.current = true;
         canvas.loadFromJSON(JSON.parse(template.canvas_json)).then(() => {
           canvas.requestRenderAll();
-          isRestoringRef.current.delete(pageId);
-          historyMapRef.current.set(pageId, {
+          isRestoringRef.current = false;
+          historyRef.current = {
             entries: [JSON.stringify(canvas.toJSON())],
             index: 0,
-          });
-          updateUndoRedoState(pageId);
+          };
+          updateUndoRedoState();
         });
       }
     },
-    [getActiveCanvas, updateUndoRedoState]
+    [updateUndoRedoState]
   );
 
-  // ── Keyboard shortcuts ──────────────────────────────────────────────
+  // ── Keyboard shortcuts ────────────────────────────────────────────
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -469,12 +416,9 @@ export function useCanvasState() {
   }
 
   return {
-    // Canvas map management
+    // Canvas registration (single canvas)
     registerCanvas,
     unregisterCanvas,
-    setActiveCanvas,
-    activeCanvasId,
-    canvasMap: canvasMapRef,
     // For backward compat (right-sidebar uses canvas directly)
     get canvas() {
       return getActiveCanvas();
@@ -502,7 +446,6 @@ export function useCanvasState() {
     zoomOut,
     exportPNG,
     getCanvasJSON,
-    getCanvasJSONForPage,
     loadTemplate,
   };
 }

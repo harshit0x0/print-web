@@ -18,12 +18,12 @@ import { DesignList } from "./design-list";
 type Section = "templates" | "text" | "shapes" | "images" | "background" | "designs";
 
 const SECTIONS: { key: Section; icon: typeof LayoutGrid; label: string }[] = [
-  { key: "templates", icon: Sparkles, label: "Templates" },
-  { key: "shapes", icon: Square, label: "Elements" },
   { key: "text", icon: Type, label: "Text" },
-  { key: "images", icon: Upload, label: "Uploads" },
+  { key: "images", icon: Upload, label: "Images" },
+  { key: "shapes", icon: Square, label: "Elements" },
+  { key: "templates", icon: Sparkles, label: "Templates" },
   { key: "background", icon: Palette, label: "Bg" },
-  { key: "designs", icon: LayoutGrid, label: "Designs" },
+  // { key: "designs", icon: LayoutGrid, label: "Designs" },
 ];
 
 const SECTION_TITLES: Record<Section, string> = {
@@ -53,7 +53,7 @@ const BG_COLORS = [
 
 export function LeftSidebar() {
   const { addText, addShape, addImage, setBackground, templates, loadTemplate } = useEditor();
-  const [activeSection, setActiveSection] = useState<Section | null>("templates");
+  const [activeSection, setActiveSection] = useState<Section | null>("text");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgFileRef = useRef<HTMLInputElement>(null);
@@ -116,11 +116,10 @@ export function LeftSidebar() {
         {SECTIONS.map((s) => (
           <button
             key={s.key}
-            class={`flex flex-col items-center justify-center gap-0.5 w-[56px] h-[56px] rounded-lg bg-transparent border-none cursor-pointer transition-all ${
-              activeSection === s.key
-                ? "text-accent bg-accent/10"
-                : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50"
-            }`}
+            class={`flex flex-col items-center justify-center gap-0.5 w-[56px] h-[56px] rounded-lg bg-transparent border-none cursor-pointer transition-all ${activeSection === s.key
+              ? "text-accent bg-accent/10"
+              : "text-zinc-500 hover:text-zinc-700 hover:bg-zinc-50"
+              }`}
             onClick={() => handleSectionClick(s.key)}
           >
             <s.icon size={20} />

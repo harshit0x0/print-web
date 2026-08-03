@@ -1,22 +1,16 @@
 import { useRef, useEffect } from "preact/hooks";
 import * as fabric from "fabric";
 import { useEditor } from "../context";
-import type { Page } from "../types";
 
 interface PageCanvasProps {
-  page: Page;
-  isActive: boolean;
   width: number;
   height: number;
-  onActivate: () => void;
 }
 
-export function PageCanvas({ page, isActive, width, height, onActivate }: PageCanvasProps) {
+export function PageCanvas({ width, height }: PageCanvasProps) {
   const { registerCanvas, unregisterCanvas } = useEditor();
   const canvasElRef = useRef<HTMLCanvasElement>(null);
   const fabricRef = useRef<fabric.Canvas | null>(null);
-  const onActivateRef = useRef(onActivate);
-  onActivateRef.current = onActivate;
 
   useEffect(() => {
     if (!canvasElRef.current || fabricRef.current) return;
@@ -36,7 +30,7 @@ export function PageCanvas({ page, isActive, width, height, onActivate }: PageCa
     c.setDimensions({ width, height }, { cssOnly: true });
     c.setViewportTransform([dpr, 0, 0, dpr, 0, 0]);
 
-    // Custom control appearance — applied per-object via object:added
+    // Custom control appearance
     const CONTROL_STYLE = {
       transparentCorners: false,
       borderColor: "#6366f1",
@@ -48,7 +42,6 @@ export function PageCanvas({ page, isActive, width, height, onActivate }: PageCa
       cornerStyle: "circle" as const,
     };
 
-    // Custom render for corner controls (white circles with accent stroke)
     const renderCircleCorner = (
       ctx: CanvasRenderingContext2D,
       left: number,
@@ -69,7 +62,6 @@ export function PageCanvas({ page, isActive, width, height, onActivate }: PageCa
       ctx.restore();
     };
 
-    // Custom render for side controls (rounded pill handles)
     const renderPillControl = (horizontal: boolean) => {
       return (
         ctx: CanvasRenderingContext2D,
@@ -93,10 +85,8 @@ export function PageCanvas({ page, isActive, width, height, onActivate }: PageCa
       };
     };
 
-    // Apply custom controls to an object
     const applyCustomControls = (obj: fabric.FabricObject) => {
       obj.set(CONTROL_STYLE);
-      // Override corner renders
       if (obj.controls) {
         for (const key of ["tl", "tr", "bl", "br"]) {
           if (obj.controls[key]) {
@@ -122,31 +112,16 @@ export function PageCanvas({ page, isActive, width, height, onActivate }: PageCa
       }
     };
 
-    // Apply to all existing objects
     c.getObjects().forEach(applyCustomControls);
-
-    // Apply to any newly added objects
     c.on("object:added", (e) => {
       if (e.target) applyCustomControls(e.target);
     });
 
-    // Load page content
-    if (page.canvas_json && page.canvas_json !== "{}") {
-      try {
-        c.loadFromJSON(JSON.parse(page.canvas_json)).then(() => c.requestRenderAll());
-      } catch {
-        // ignore parse errors
-      }
-    }
-
-    // On mouse down, activate this canvas (use ref to avoid stale closure)
-    c.on("mouse:down", () => onActivateRef.current());
-
     fabricRef.current = c;
-    registerCanvas(page.id, c);
+    registerCanvas(c);
 
     return () => {
-      unregisterCanvas(page.id);
+      unregisterCanvas();
       c.dispose();
       fabricRef.current = null;
     };
@@ -154,7 +129,7 @@ export function PageCanvas({ page, isActive, width, height, onActivate }: PageCa
 
   return (
     <div
-      class={`shadow-lg rounded-lg overflow-hidden ${isActive ? "ring-2 ring-[#6366f1]" : ""}`}
+      class="shadow-lg rounded-lg overflow-hidden"
       style={{ width, height }}
     >
       <canvas ref={canvasElRef} />

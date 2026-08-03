@@ -10,7 +10,7 @@ import { useEffect } from "preact/hooks";
 export function App() {
   const { path, navigate, designId } = useRouter();
   const canvasState = useCanvasState();
-  const designState = useDesigns(canvasState.getCanvasJSONForPage);
+  const designState = useDesigns(canvasState.getCanvasJSON);
 
   // Load Google Fonts
   useEffect(() => {
@@ -51,12 +51,13 @@ export function App() {
     }
   }, [designState.activeDesign]);
 
-  // Auto-activate first page when pages load and canvases are registered
+  // Auto-load canvas JSON when design is loaded
   useEffect(() => {
-    if (designState.pages.length > 0 && !canvasState.activeCanvasId) {
-      canvasState.setActiveCanvas(designState.pages[0].id);
+    if (designState.activeDesign?.canvas_json && designState.activeDesign.canvas_json !== "{}") {
+      // Template loading handles canvas JSON — this is for loaded designs
+      // The PageCanvas component will handle this on mount
     }
-  }, [designState.pages, canvasState.activeCanvasId]);
+  }, [designState.activeDesign]);
 
   if (designState.loading) {
     return (
@@ -88,8 +89,6 @@ export function App() {
   const contextValue = {
     ...canvasState,
     ...designState,
-    // activeCanvasId is the source of truth for which page is active
-    activePageId: canvasState.activeCanvasId ?? designState.activePageId,
     navigate,
   };
 
